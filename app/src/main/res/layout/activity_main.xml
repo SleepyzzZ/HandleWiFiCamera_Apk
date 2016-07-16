@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".activity.MainActivity">
+
+    <android.support.design.widget.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <android.support.v7.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="@string/app_name"
+            app:titleTextColor="@android:color/white">
+        </android.support.v7.widget.Toolbar>
+    </android.support.design.widget.AppBarLayout>
+
+    <EditText
+        android:id="@+id/et_input"
+        android:hint="@string/input_rtsp_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    
+    <Button
+        android:id="@+id/btn_play"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/play_rtsp_url"/>
+
+    <Button
+        android:id="@+id/btn_photo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/photo_selector"/>
+
+</LinearLayout>
