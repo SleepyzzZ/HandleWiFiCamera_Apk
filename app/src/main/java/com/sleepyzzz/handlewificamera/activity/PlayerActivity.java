@@ -1,6 +1,5 @@
 package com.sleepyzzz.handlewificamera.activity;
 
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -20,11 +19,17 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.baidu.location.BDLocation;
+import com.baidu.location.BDLocationListener;
+import com.baidu.location.LocationClientOption;
+import com.orhanobut.logger.Logger;
 import com.sleepyzzz.handlewificamera.R;
 import com.sleepyzzz.handlewificamera.base.DTApplication;
 import com.sleepyzzz.handlewificamera.constant.Const;
 import com.sleepyzzz.handlewificamera.custom.PlayerView;
+import com.sleepyzzz.handlewificamera.entity.GpsInfo;
 import com.sleepyzzz.handlewificamera.entity.MessageEvent;
+import com.sleepyzzz.handlewificamera.location.LocationService;
 import com.sleepyzzz.handlewificamera.socket.CmdEventHelper;
 import com.sleepyzzz.handlewificamera.socket.SocketThreadManager;
 
@@ -92,7 +97,15 @@ public class PlayerActivity extends AppCompatActivity implements Handler.Callbac
 
     private boolean isLocked = false;
 
-    private ProgressDialog mProgressDialog;
+    //private ProgressDialog mProgressDialog;
+
+    /**
+     * GPS
+     */
+    private LocationService mLocationService;
+    private LocationClientOption mOption;
+    private static final int LOCATION_FREQUENCE = 60 * 100;
+    private static final int LOCATION_DISTANCE = 100;
 
     public static void actionStart(Context context, String data) {
 
@@ -109,13 +122,25 @@ public class PlayerActivity extends AppCompatActivity implements Handler.Callbac
 
         mRtspUrl = getIntent().getStringExtra(EXTRA_RTSP_URL);
 
+        /**
+         * 启动gps服务
+         * 配置模式
+         */
+        mLocationService = ((DTApplication) getApplication()).mLocationService;
+        mLocationService.stop();
+        mOption = new LocationClientOption();
+        mOption = mLocationService.getDefaultLocationClientOption();
+        mOption.setOpenAutoNotifyMode(LOCATION_FREQUENCE,
+                LOCATION_DISTANCE, LocationClientOption.LOC_SENSITIVITY_HIGHT);
+        mLocationService.setLocationOption(mOption);
+
         mHandler = new Handler(this);
         SocketThreadManager.getInstance();
 
-        mProgressDialog = new ProgressDialog(PlayerActivity.this);
+        /*mProgressDialog = new ProgressDialog(PlayerActivity.this);
         mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         mProgressDialog.setTitle("Tips");
-        mProgressDialog.setMessage("receive picture...");
+        mProgressDialog.setMessage("receive picture...");*/
 
         mSbVideo.setOnSeekBarChangeListener(this);
         // 设置播放器参数(ms)
@@ -138,6 +163,11 @@ public class PlayerActivity extends AppCompatActivity implements Handler.Callbac
 
     @Override
     protected void onPause() {
+
+        //暂停定位服务
+        mLocationService.unregisterListener(mLocationListener);
+        mLocationService.stop();
+
         if (mPvVideo.isPlaying()) {
             mPvVideo.pause();
             mIbPlay.setBackgroundResource(R.drawable.ic_play);
@@ -147,6 +177,10 @@ public class PlayerActivity extends AppCompatActivity implements Handler.Callbac
 
     @Override
     protected void onResume() {
+
+        //启动定位服务
+        mLocationService.registerListener(mLocationListener);
+        mLocationService.start();
 
         mPvVideo.play();
         mIbPlay.setBackgroundResource(R.drawable.ic_pause);
@@ -227,6 +261,34 @@ public class PlayerActivity extends AppCompatActivity implements Handler.Callbac
 
         return time;
     }
+
+    private BDLocationListener mLocationListener = new BDLocationListener() {
+        @Override
+        public void onReceiveLocation(BDLocation bdLocation) {
+            if (bdLocation != null) {
+                GpsInfo.getInstance().setSucess(true);
+                GpsInfo.getInstance().setLongitude(bdLocation.getLongitude());
+                GpsInfo.getInstance().setLatitude(bdLocation.getLatitude());
+                Logger.t(TAG).d("Longitude: %f, Latitude: %f, Altitude: %f",
+                        bdLocation.getLongitude(), bdLocation.getLatitude(), bdLocation.getAltitude());
+
+                if (bdLocation.getLocType() == BDLocation.TypeGpsLocation) { //GPS定位结果
+                    Logger.t(TAG).d("Altitude: %f", bdLocation.getAltitude());
+                } else if (bdLocation.getLocType() == BDLocation.TypeNetWorkLocation) { //网络定位结果
+                    Logger.t(TAG).d("采用wifi直连模式,此场景不适用");
+                } else if (bdLocation.getLocType() == BDLocation.TypeOffLineLocation) { //离线定位结果
+                    Logger.t(TAG).d("在无法收到卫星的情况下进入离线定位场景");
+                } else if (bdLocation.getLocType() == BDLocation.TypeServerError) {
+                    Logger.t(TAG).d("服务端网路定位失败");
+                } else if (bdLocation.getLocType() == BDLocation.TypeNetWorkException) {
+                    Logger.t(TAG).d("网络不同导致定位失败，请检查网络是否通畅");
+                } else if (bdLocation.getLocType() == BDLocation.TypeCriteriaException) {
+                    Logger.t(TAG).d("无法获取有效定位依据导致定位失败，一般是由于手机的原因，" +
+                            "处于飞行模式下一般会造成这种结果，可以试着重启手机");
+                }
+            }
+        }
+    };
 
     @OnClick({R.id.ib_lock, R.id.ib_play, R.id.ib_menu, R.id.ib_capture})
     public void onClick(View view) {

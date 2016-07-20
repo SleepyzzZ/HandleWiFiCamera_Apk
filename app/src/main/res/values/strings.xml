@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">HandleWiFiCamera</string>
+    <string name="app_name">手持式相机</string>
     <string name="input_rtsp_url">eg:192.168.43.1</string>
     <string name="play_rtsp_url">PLAY</string>
     <string name="photo_selector">PHOTO_SELECTOR</string>

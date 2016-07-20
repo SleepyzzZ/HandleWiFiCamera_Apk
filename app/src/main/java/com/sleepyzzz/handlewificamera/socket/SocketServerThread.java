@@ -1,8 +1,11 @@
 package com.sleepyzzz.handlewificamera.socket;
 
+import android.media.ExifInterface;
+
 import com.orhanobut.logger.Logger;
 import com.sleepyzzz.handlewificamera.base.DTApplication;
 import com.sleepyzzz.handlewificamera.constant.Const;
+import com.sleepyzzz.handlewificamera.entity.GpsInfo;
 import com.sleepyzzz.handlewificamera.entity.MessageEvent;
 
 import org.greenrobot.eventbus.EventBus;
@@ -182,7 +185,112 @@ public class SocketServerThread extends Thread {
             File imageFile = new File(photoPath);
             if (imageFile.exists()) {
                 EventBus.getDefault().post(new MessageEvent.NotifyMediaEvent(photoPath));
+                if (GpsInfo.getInstance().isSucess()) {
+                    writeGpsToJpegExif(photoPath, GpsInfo.getInstance().getLatitude(),
+                            GpsInfo.getInstance().getLongitude());
+                }
             }
+        }
+
+        /**
+         * 将gps信息写入jpeg文件的exif头中
+         * @param path
+         * @param latitude
+         * @param longitude
+         */
+        private void writeGpsToJpegExif(String path, double latitude, double longitude) {
+
+            try {
+                ExifInterface exif = new ExifInterface(path);
+                String tagLat = exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE);
+                String tagLng = exif.getAttribute(ExifInterface.TAG_GPS_LONGITUDE);
+                if (tagLat == null && tagLng == null) {
+                    exif.setAttribute(ExifInterface.TAG_GPS_LATITUDE,
+                            decimalToDMS(latitude));
+                    exif.setAttribute(ExifInterface.TAG_GPS_LATITUDE_REF,
+                            latitude > 0 ? "N" : "S");
+                    exif.setAttribute(ExifInterface.TAG_GPS_LONGITUDE,
+                            decimalToDMS(longitude));
+                    exif.setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF,
+                            longitude > 0 ? "E" : "W");
+                    //保存
+                    exif.saveAttributes();
+                }
+            } catch (IOException e) {
+
+            }
+        }
+
+        /**
+         * 格式转化使gps正确写入exif
+         *
+         * @param value
+         * @return
+         */
+        private String decimalToDMS(double value) {
+            String output, degrees, minutes, seconds;
+
+            // gets the modulus the coordinate divided by one (MOD1).
+            // in other words gets all the numbers after the decimal point.
+            // e.g. mod := -79.982195 % 1 == 0.982195
+            //
+            // next get the integer part of the coord. On other words the whole
+            // number part.
+            // e.g. intPart := -79
+
+            double mod = value % 1;
+            int intPart = (int) value;
+
+            // set degrees to the value of intPart
+            // e.g. degrees := "-79"
+
+            degrees = String.valueOf(intPart);
+
+            // next times the MOD1 of degrees by 60 so we can find the integer part
+            // for minutes.
+            // get the MOD1 of the new coord to find the numbers after the decimal
+            // point.
+            // e.g. coord := 0.982195 * 60 == 58.9317
+            // mod := 58.9317 % 1 == 0.9317
+            //
+            // next get the value of the integer part of the coord.
+            // e.g. intPart := 58
+
+            value = mod * 60;
+            mod = value % 1;
+            intPart = (int) value;
+            if (intPart < 0) {
+                // Convert number to positive if it's negative.
+                intPart *= -1;
+            }
+
+            // set minutes to the value of intPart.
+            // e.g. minutes = "58"
+            minutes = String.valueOf(intPart);
+
+            // do the same again for minutes
+            // e.g. coord := 0.9317 * 60 == 55.902
+            // e.g. intPart := 55
+            value = mod * 60;
+            intPart = (int) value;
+            if (intPart < 0) {
+                // Convert number to positive if it's negative.
+                intPart *= -1;
+            }
+
+            // set seconds to the value of intPart.
+            // e.g. seconds = "55"
+            seconds = String.valueOf(intPart);
+
+            // I used this format for android but you can change it
+            // to return in whatever format you like
+            // e.g. output = "-79/1,58/1,56/1"
+            output = degrees + "/1," + minutes + "/1," + seconds + "/1";
+
+            // Standard output of D°M′S″
+            // output = degrees + "°" + minutes + "'" + seconds + "\"";
+
+            return output;
         }
     }
 }
